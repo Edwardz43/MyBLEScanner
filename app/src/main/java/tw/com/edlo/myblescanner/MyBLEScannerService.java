@@ -5,6 +5,9 @@ import android.content.Intent;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.util.Log;
+import android.view.TextureView;
+import android.view.View;
+import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.inuker.bluetooth.library.BluetoothClient;
@@ -37,6 +40,8 @@ import static com.inuker.bluetooth.library.Constants.STATUS_DISCONNECTED;
 public class MyBLEScannerService extends Service {
     static boolean isBluetoothOpen;
     static boolean isDeviceConnect;
+    static boolean isDeviceSearched;
+    private boolean isWriteResponsed;
     private String deviceMAC;
     private BluetoothClient mClient;
     private static BleConnectStatusListener mBleConnectStatusListener;
@@ -45,6 +50,7 @@ public class MyBLEScannerService extends Service {
     private final UUID notifyUUID = UUID.fromString("6e400003-b5a3-f393-e0a9-e50e24dcca9e");
     private final UUID writeUUID = UUID.fromString("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
     private final UUID readUUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
+    private final byte[] test = new byte[]{90,-46,0,0,0,0,0,0,0,0,0,0,-120,-86};
     protected final Integer SEARCH = 0;
     protected final Integer CONNECT = 1;
     protected final Integer DISCONNECT = 2;
@@ -58,12 +64,16 @@ public class MyBLEScannerService extends Service {
         super.onCreate();
         isBluetoothOpen = false;
         isDeviceConnect = false;
+        isWriteResponsed = false;
+        isDeviceSearched = false;
         init();
     }
 
     private void init() {
         isBluetoothOpen = false;
         isDeviceConnect = false;
+        isWriteResponsed = false;
+        isDeviceSearched = false;
 
         mClient = new BluetoothClient(this);
         mClient.openBluetooth();
@@ -86,9 +96,9 @@ public class MyBLEScannerService extends Service {
             @Override
             public void onConnectStatusChanged(String mac, int status) {
                 if (status == STATUS_CONNECTED) {
-
+                    Log.d("ed43", "Connect Status Changed : CONNECTED");
                 } else if (status == STATUS_DISCONNECTED) {
-
+                    Log.d("ed43", "Connect Status Changed : DISCONNECTED");
                 }
             }
         };
@@ -127,7 +137,7 @@ public class MyBLEScannerService extends Service {
                     mNotify();
                     break;
                 case 4:
-                    write();
+                    write(new byte[]{90,-43,5,30,0,2,-98,0,-64,0,0,0,-56,-86});
                     break;
                 case 5:
                     //mNotify();
@@ -142,12 +152,13 @@ public class MyBLEScannerService extends Service {
     }
 
     private void keepConnect() {
-        Log.d("ed43", "keepConnect()");
+        //Log.d("ed43", "keepConnect()");
         timer = new Timer();
-        timer.schedule(new MyTask(),0,1000);
+        timer.schedule(new MyTask(),0,2000);
     }
 
     private void search() {
+        isDeviceSearched = false;
         SearchRequest request = new SearchRequest.Builder()
                 .searchBluetoothLeDevice(3000, 3)
                 .build();
@@ -160,13 +171,14 @@ public class MyBLEScannerService extends Service {
 
             @Override
             public void onDeviceFounded(SearchResult device) {
-                Log.d("ed43", "Device Founded");
-                if(device.getName().substring(0, 3).equals("MCF")){
+                //Log.d("ed43", "Device Founded");
+                if(!isDeviceSearched && device.getName().substring(0, 3).equals("MCF")){
                     //Log.d("ed43", "Search Result : " + device.getName());
                     Intent it = new Intent("BLEScannerService");
                     it.putExtra("isDeviceSearched", true);
                     it.putExtra("device", device);
                     sendBroadcast(it);
+                    isDeviceSearched = true;
                 }
 
             }
@@ -197,17 +209,26 @@ public class MyBLEScannerService extends Service {
         mClient.notify(deviceMAC, serviceUUID, notifyUUID, new BleNotifyResponse() {
             @Override
             public void onNotify(UUID service, UUID character, byte[] value) {
-                Log.d("ed43", "+++++++++++++++++++++++++++");
+                //Log.d("ed43", "+++++++++++++++++++++++++++");
                 Log.d("ed43", new Gson().toJson(value));
                 String mData = toHexString(value);
-                Log.d("ed43", mData);
-                Log.d("ed43", "---------------------------");
-            }
+                //Log.d("ed43", "mData : " + mData);
+                if(mData.substring(2,4).equals("D2")){
+                    Log.d("ed43", "Weight : " + getWeight(mData));
+                    Intent it = new Intent("BLEScannerService");
+                    it.putExtra("weight", getWeight(mData));
+                    sendBroadcast(it);
+                    write(test);
+                } else if(mData.substring(2,4).equals("D3")){
+                    Log.d("ed43", "data : " + mData);
+                }
+                //Log.d("ed43", "---------------------------");
+                }
             @Override
             public void onResponse(int code) {
-                Log.d("ed43", "notify response code : " + code);
+                //Log.d("ed43", "notify response code : " + code);
                 if (code == REQUEST_SUCCESS) {
-                    Log.d("ed43", "REQUEST_SUCCESS");
+                    Log.d("ed43", "Notify : REQUEST_SUCCESS");
                 }else if(code == REQUEST_FAILED){
                     Log.d("ed43", "Notify : REQUEST_FAILED");
                 }
@@ -215,23 +236,19 @@ public class MyBLEScannerService extends Service {
         });
     }
 
-    private void write() {
+    private void write(byte[] bytes) {
         //String data = "5a d4 00 00 00 00 00 00 00 00 00 00 8e aa";
         //Log.d("ed43", "Write : REQUEST");
-        if (timer != null){
-            timer.cancel();
-            timer.purge();
-            timer = null;
-        }
-        byte[] bytes = new byte[]{90,-43,5,30,0,2,-98,0,-64,0,0,0,-112,-86};
+        String mData = toHexString(bytes);
+        Log.d("ed43", mData);
         mClient.write(deviceMAC, serviceUUID, writeUUID, bytes, new BleWriteResponse() {
             @Override
             public void onResponse(int code) {
-                Log.d("ed43", "write response code : " + code);
+                //Log.d("ed43", "write response code : " + code);
                 if (code == REQUEST_SUCCESS) {
                     Log.d("ed43", "OK");
                 }else if(code == REQUEST_FAILED){
-                    Log.d("ed43", "FAILED");
+                    //Log.d("ed43", "FAILED");
                 }
             }
         });
@@ -245,6 +262,15 @@ public class MyBLEScannerService extends Service {
                 Log.d("ed43", new Gson().toJson(data));
             }
         });
+    }
+
+    public void disConnect(View view){
+        if (timer != null){
+            timer.cancel();
+            timer.purge();
+            timer = null;
+        }
+        mClient.disconnect(deviceMAC);
     }
 
     private boolean connectDevice(String deviceMAC){
@@ -267,10 +293,7 @@ public class MyBLEScannerService extends Service {
                     //testRead();
                     Log.d("ed43", "Connect : REQUEST_SUCCESS");
                     Log.d("ed43", new Gson().toJson(data));
-                    Intent it = new Intent("BLEScannerService");
-                    it.putExtra("isDeviceConnect", true);
-                    sendBroadcast(it);
-                    //mNotify();
+                    mNotify();
                 }else if (code == REQUEST_FAILED){
                     Log.d("ed43","Connect : REQUEST_FAILED");
                 }
@@ -289,6 +312,13 @@ public class MyBLEScannerService extends Service {
             hexChars[j * 2 + 1] = hexArray[v & 0x0F];
         }
         return new String(hexChars);
+    }
+
+    public double getWeight(String s) {
+        int highDigit = Integer.parseInt(s.substring(5, 6), 16);
+        int midDigit = Integer.parseInt(s.substring(6, 7), 16);
+        int lowDigit = Integer.parseInt(s.substring(7, 8), 16);
+        return (highDigit * 16 * 16 + midDigit * 16 + lowDigit)/10.0;
     }
 
     @Override
@@ -310,16 +340,15 @@ public class MyBLEScannerService extends Service {
     }
 
     class MyTask extends TimerTask{
-
         @Override
         public void run() {
             //String data = "5a d4 00 00 00 00 00 00 00 00 00 00 8e aa";
             //Log.d("ed43", "Write : REQUEST");
-            byte[] bytes = new byte[]{90, -44, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -113, -86};
+            byte[] bytes = new byte[]{90, -44, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -114, -86};
             mClient.write(deviceMAC, serviceUUID, writeUUID, bytes, new BleWriteResponse() {
                 @Override
                 public void onResponse(int code) {
-                    Log.d("ed43", "write response code : " + code);
+                    //Log.d("ed43", "write response code : " + code);
                     if (code == REQUEST_SUCCESS) {
                         Log.d("ed43", "OK");
                     }else if(code == REQUEST_FAILED){

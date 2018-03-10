@@ -12,7 +12,9 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.TextureView;
 import android.view.View;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.inuker.bluetooth.library.search.SearchResult;
@@ -27,7 +29,7 @@ public class MainActivity extends AppCompatActivity {
     protected List<SearchResult> device_List;
     private AlertDialog.Builder dialog_list;
     private MyOnclickListener mOnclickListener;
-    private boolean isDialogShow;
+    protected boolean isDialogShowed;
     private String deviceMAC;
 
     @Override
@@ -64,7 +66,6 @@ public class MainActivity extends AppCompatActivity {
         mOnclickListener = new MyOnclickListener();
         mOnclickListener.setParent(this);
         dialog_list = new AlertDialog.Builder(this);
-        isDialogShow = false;
 //        Intent serviceIntent = new Intent(this, MyBLEScannerService.class);
 //        serviceIntent.putExtra("cmd",0);
 //        startService(serviceIntent);
@@ -73,8 +74,9 @@ public class MainActivity extends AppCompatActivity {
         registerReceiver(receiver, filter);
     }
 
-    public void deviceSearched(SearchResult device){
-        Log.d("ed43","deviceSearched : "+device.getName());
+    public void selectDevice(SearchResult device){
+        //Log.d("ed43","deviceSearched : "+device.getName());
+        isDialogShowed = false;
         device_List = new ArrayList<>();
         if(device.getName().substring(0, 3).equals("MCF")){
             if(!device_List.contains(device)) device_List.add(device);
@@ -89,22 +91,16 @@ public class MainActivity extends AppCompatActivity {
             dialog_list.setPositiveButton("OK", new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialogInterface, int i) {
-                    Log.d("ed43", "select device : " + deviceMAC);
-                    isDialogShow = false;
+                    //Log.d("ed43", "select device : " + deviceMAC);
                     connect();
+                    isDialogShowed = false;
                 }
             });
-            if(!isDialogShow) {
+            if(!isDialogShowed) {
                 dialog_list.show();
-                isDialogShow = true;
+                isDialogShowed = true;
             }
         }
-    }
-
-    public void keepConnect(){
-        Intent it = new Intent(this, MyBLEScannerService.class);
-        it.putExtra("cmd", 6);
-        startService(it);
     }
 
     private void connect(){
@@ -132,6 +128,12 @@ public class MainActivity extends AppCompatActivity {
         startService(intent);
     }
 
+    public void notify(View view){
+        Intent intent = new Intent(this, MyBLEScannerService.class);
+        intent.putExtra("cmd", 3);
+        startService(intent);
+    }
+
     @Override
     protected void onDestroy() {
         unregisterReceiver(receiver);
@@ -156,6 +158,13 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(activity, "你選的是" + activity.device_List.get(i).getName(), Toast.LENGTH_SHORT).show();
             activity.deviceMAC = activity.device_List.get(i).getAddress();
         }
+    }
+
+
+    public void setWeight(double i){
+        TextView weightTV = findViewById(R.id.weightTV);
+        double d = (i*22000/1000+5) / 10;
+        weightTV.setText("" + d);
     }
 
 }

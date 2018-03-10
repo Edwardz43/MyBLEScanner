@@ -14,6 +14,8 @@ import com.inuker.bluetooth.library.search.SearchResult;
 public class MyReceiver extends BroadcastReceiver {
     private MainActivity activity;
 
+    public MyReceiver(){}
+
     public MyReceiver(MainActivity activity) {
         super();
         this.activity = activity;
@@ -23,12 +25,12 @@ public class MyReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         boolean isDeviceSearched = intent.getBooleanExtra("isDeviceSearched",false);
         if(isDeviceSearched){
-            activity.deviceSearched((SearchResult) intent.getParcelableExtra("device"));
+            activity.selectDevice((SearchResult) intent.getParcelableExtra("device"));
         }
 
-        boolean isDeviceConnect = intent.getBooleanExtra("isDeviceConnect",false);
-        if(isDeviceConnect){
-            activity.keepConnect();
+        double weight = intent.getDoubleExtra("weight", 0);
+        if(weight > 0){
+            activity.setWeight(weight);
         }
 
     }

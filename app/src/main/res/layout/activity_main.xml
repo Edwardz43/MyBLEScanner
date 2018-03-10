@@ -22,9 +22,16 @@
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="read"
-        android:onClick="read"
+        android:text="notify"
+        android:onClick="notify"
         android:layout_weight="1"
+        />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:id="@+id/weightTV"
+        android:text="000.0"
         />
 
 </LinearLayout>
